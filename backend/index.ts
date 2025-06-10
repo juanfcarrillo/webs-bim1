@@ -3,6 +3,13 @@ import { Server } from 'socket.io';
 import dotenv from 'dotenv';
 import path from 'path';
 import cors from 'cors';
+import connectDB from './config/database';
+// In your backend/index.ts
+import apiRoutes from './routes/api';
+
+
+// Connect to MongoDB
+connectDB();
 
 dotenv.config();
 
@@ -15,6 +22,8 @@ app.use(express.json());
 
 // API routes
 // app.use('/api/appointments', /* your appointment routes */);
+
+app.use('/api', apiRoutes);
 
 // Serve static files from React app in production
 if (process.env.NODE_ENV === 'production') {
@@ -40,6 +49,47 @@ const io = new Server(server, {
   }
 });
 
+// Keep track of connected users
+const connectedUsers = new Map();
+
 io.on('connection', (socket) => {
   console.log('A user connected');
+
+  // Handle user joining
+  socket.on('join', (userId) => {
+    connectedUsers.set(socket.id, userId);
+    console.log(`User ${userId} joined`);
+  });
+
+  // Handle chat messages
+  socket.on('chat message', (message) => {
+    const sender = connectedUsers.get(socket.id);
+    const messageData = {
+      text: message,
+      sender,
+      timestamp: new Date()
+    };
+    
+    // Broadcast the message to all connected clients except sender
+    socket.broadcast.emit('chat message', messageData);
+  });
+
+  // Handle typing indicator
+  socket.on('typing', () => {
+    const sender = connectedUsers.get(socket.id);
+    socket.broadcast.emit('user typing', sender);
+  });
+
+  // Handle when user stops typing
+  socket.on('stop typing', () => {
+    const sender = connectedUsers.get(socket.id);
+    socket.broadcast.emit('user stop typing', sender);
+  });
+
+  // Handle disconnection
+  socket.on('disconnect', () => {
+    const userId = connectedUsers.get(socket.id);
+    connectedUsers.delete(socket.id);
+    console.log(`User ${userId} disconnected`);
+  });
 });

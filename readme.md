@@ -41,3 +41,36 @@ Desarrollar una aplicación web monolítica que permita a una veterinaria gestio
 | Autenticación Básica | (Opcional) Identificación del cliente por nombre o correo para distinguir usuarios |
 | Almacenamiento Persistente | Base de datos para guardar citas, mascotas y mensajes |
 | Interfaz Web | Sistema accesible desde navegador con diseño adaptable y responsivo |
+
+
+## Configuración
+Instalar dependencias:
+```bash
+npm install
+```
+
+Crear un archivo `.env` en la raíz del proyecto con las siguientes variables:
+```bash
+PORT=3000
+```
+
+Ejecutar el servidor:
+```bash
+npm run dev
+```
+
+Para desplegar en producción, ejecutar:
+```bash
+npm run build
+npm run start
+```
+
+Para instalar mongo:
+```bash
+docker run -d \
+  --name mongodb \
+  -p 27017:27017 \
+  -e MONGO_INITDB_ROOT_USERNAME=admin \
+  -e MONGO_INITDB_ROOT_PASSWORD=password \
+  mongo:latest
+```
