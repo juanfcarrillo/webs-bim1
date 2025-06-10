@@ -2,50 +2,37 @@
   "name": "pet-vet",
   "version": "1.0.0",
   "description": "",
-  "main": "dist/index.js",
-  "type": "module",
   "scripts": {
     "start": "node dist/index.js",
-    "dev": "nodemon",
-    "build": "tsc",
-    "watch-ts": "tsc -w",
-    "lint": "eslint . --ext .ts",
-    "test": "jest"
+    "dev:backend": "nodemon",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build:backend": "tsc -p backend/tsconfig.json",
+    "build:frontend": "cd frontend && npm run build",
+    "build": "npm run build:backend && npm run build:frontend",
+    "lint": "eslint . --ext .ts,.tsx"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/juanfcarrillo/webs-bim1.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/juanfcarrillo/webs-bim1/issues"
-  },
-  "homepage": "https://github.com/juanfcarrillo/webs-bim1#readme",
   "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
     "express": "^5.1.0",
-    "express-session": "^1.18.0",
+    "socket.io": "^4.7.4",
     "mongoose": "^8.2.0",
-    "socket.io": "^4.7.4"
+    "dotenv": "^16.4.5",
+    "cors": "^2.8.5",
+    "express-session": "^1.18.0",
+    "bcryptjs": "^2.4.3"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/express-session": "^1.17.10",
-    "@types/jest": "^29.5.12",
     "@types/node": "^20.11.24",
     "@typescript-eslint/eslint-plugin": "^7.1.0",
     "@typescript-eslint/parser": "^7.1.0",
+    "concurrently": "^8.2.2",
     "eslint": "^8.57.0",
-    "jest": "^29.7.0",
     "nodemon": "^3.1.0",
-    "ts-jest": "^29.1.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.3"
+    "typescript": "^5.3.3"
   }
 }
