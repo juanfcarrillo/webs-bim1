@@ -1,150 +1,118 @@
-import { useState, useEffect, useRef } from 'react';
-import { io, Socket } from 'socket.io-client';
+import { useEffect, useState } from 'react';
+import io from 'socket.io-client';
+
+const socket = io('http://localhost:3001');
 
 interface Message {
+  _id?: string;
   text: string;
-  sender: string;
-  timestamp: Date;
+  senderId: string;
+  receiverId: string;
+  timestamp: string;
 }
 
-const Chat = () => {
+const Chat = ({
+  userId,
+  receiverId
+}: {
+  userId: string;
+  receiverId: string;
+}) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [socket, setSocket] = useState<Socket | null>(null);
-  const [isTyping, setIsTyping] = useState(false);
-  const [typingUsers, setTypingUsers] = useState<string[]>([]);
-  const messagesEndRef = useRef<null | HTMLDivElement>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout>(null);
 
   useEffect(() => {
-    // Connect to Socket.io server
-    const newSocket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000');
-    setSocket(newSocket);
-
-    // Generate a random user ID (in a real app, this would come from authentication)
-    const userId = `user_${Math.random().toString(36).substr(2, 9)}`;
-    newSocket.emit('join', userId);
-
-    return () => {
-      newSocket.close();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (socket) {
-      // Handle incoming messages
-      socket.on('chat message', (msg: Message) => {
-        setMessages(prev => [...prev, msg]);
-      });
-
-      // Handle typing indicators
-      socket.on('user typing', (userId: string) => {
-        setTypingUsers(prev => [...new Set([...prev, userId])]);
-      });
-
-      socket.on('user stop typing', (userId: string) => {
-        setTypingUsers(prev => prev.filter(id => id !== userId));
-      });
-    }
-  }, [socket]);
-
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const handleTyping = () => {
-    if (!isTyping) {
-      setIsTyping(true);
-      socket?.emit('typing');
+    // Si no hay userId válido, no hacemos nada
+    if (!userId) {
+      console.warn('No se puede unir al chat: userId inválido');
+      return;
     }
 
-    // Clear existing timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    // Set new timeout
-    typingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false);
-      socket?.emit('stop typing');
-    }, 2000);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newMessage.trim() && socket) {
-      const messageData = {
-        text: newMessage,
-        sender: 'user',
-        timestamp: new Date()
-      };
-
-      socket.emit('chat message', newMessage);
-      setMessages(prev => [...prev, messageData]);
-      setNewMessage('');
-      
-      // Clear typing indicator
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
+    // Función para cargar mensajes previos
+    const fetchMessages = async () => {
+      try {
+        const res = await fetch(`http://localhost:3001/api/messages/${userId}/${receiverId}`);
+        const data = await res.json();
+        if (data.success) setMessages(data.messages);
+      } catch (error) {
+        console.error('Error al cargar mensajes:', error);
       }
-      setIsTyping(false);
-      socket.emit('stop typing');
+    };
+
+    fetchMessages();
+
+    // Emitimos join solo si userId existe
+    socket.emit('join', userId);
+
+    // Escuchar mensajes nuevos
+    const onNewMessage = (msg: Message) => {
+      if (
+        (msg.senderId === userId && msg.receiverId === receiverId) ||
+        (msg.senderId === receiverId && msg.receiverId === userId)
+      ) {
+        setMessages((prev) => [...prev, msg]);
+      }
+    };
+
+    socket.on('chat message', onNewMessage);
+
+    // Limpieza al desmontar o cuando cambien userId o receiverId
+    return () => {
+      socket.off('chat message', onNewMessage);
+    };
+  }, [userId, receiverId]);
+
+  const sendMessage = () => {
+    if (!newMessage.trim()) return;
+
+    if (!userId) {
+      console.warn('No se puede enviar mensaje: userId inválido');
+      return;
     }
+
+    const msg: Message = {
+      text: newMessage,
+      senderId: userId,
+      receiverId,
+      timestamp: new Date().toISOString()
+    };
+
+    socket.emit('chat message', msg);
+    setNewMessage('');
   };
 
   return (
-    <div className="max-w-4xl mx-auto h-[calc(100vh-200px)] flex flex-col">
-      <div className="flex-grow bg-white shadow-md rounded-lg p-4 mb-4 overflow-auto">
-        <div className="space-y-4">
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-[70%] rounded-lg px-4 py-2 ${
-                  message.sender === 'user'
-                    ? 'bg-primary text-white'
-                    : 'bg-gray-100 text-gray-800'
-                }`}
-              >
-                <p>{message.text}</p>
-                <span className="text-xs opacity-75">
-                  {new Date(message.timestamp).toLocaleTimeString()}
-                </span>
-              </div>
+    <div className="container mt-4">
+      <h3 className="mb-3">Chat con Veterinario</h3>
+      <div className="border rounded p-3 mb-3" style={{ height: '300px', overflowY: 'auto', backgroundColor: '#f8f9fa' }}>
+        {messages.map((msg, idx) => (
+          <div
+            key={idx}
+            className={`mb-2 text-${msg.senderId === userId ? 'end' : 'start'}`}
+          >
+            <div className={`d-inline-block p-2 rounded ${msg.senderId === userId ? 'bg-primary text-white' : 'bg-light text-dark'}`}>
+              {msg.text}
             </div>
-          ))}
-          {typingUsers.length > 0 && (
-            <div className="text-sm text-gray-500 italic">
-              {typingUsers.length === 1
-                ? `${typingUsers[0]} is typing...`
-                : `${typingUsers.length} people are typing...`}
+            <div className="small text-muted">
+              {new Date(msg.timestamp).toLocaleTimeString()}
             </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+          </div>
+        ))}
       </div>
 
-      <form onSubmit={handleSubmit} className="flex gap-2">
+      <div className="d-flex">
         <input
           type="text"
+          className="form-control me-2"
+          placeholder="Escribe tu mensaje..."
           value={newMessage}
-          onChange={(e) => {
-            setNewMessage(e.target.value);
-            handleTyping();
-          }}
-          placeholder="Type your message..."
-          className="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          onChange={(e) => setNewMessage(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') sendMessage(); }}
         />
-        <button
-          type="submit"
-          className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-6 rounded-md transition duration-200"
-        >
-          Send
+        <button className="btn btn-success" onClick={sendMessage}>
+          Enviar
         </button>
-      </form>
+      </div>
     </div>
   );
 };
